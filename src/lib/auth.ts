@@ -1,7 +1,7 @@
-import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import { betterAuth } from "better-auth";
 import { prisma } from "./prisma";
-import nodemailer from 'nodemailer'
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -40,22 +40,23 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    autoSignIn:false,
-    requireEmailVerification:true
+    autoSignIn: false,
+    requireEmailVerification: true,
   },
   emailVerification: {
-    sendOnSignUp:true,
-  sendVerificationEmail: async ({ user, url, token }) => {
-  try {
-    const verificationUrl = `${process.env.APP_URL}/verify-email?token=${token}`;
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url, token }) => {
+      try {
+        const verificationUrl = `${process.env.APP_URL}/verify-email?token=${token}`;
 
-    console.log("Sending verification email to:", user.email);
+        console.log("Sending verification email to:", user.email);
 
-    const info = await transporter.sendMail({
-      from: '"Prisma Blog" <nomayem.ohin@gmail.com>',
-      to: user.email,
-      subject: "Verify your email – Prisma Blog",
-      html: `
+        const info = await transporter.sendMail({
+          from: '"Prisma Blog" <nomayem.ohin@gmail.com>',
+          to: user.email,
+          subject: "Verify your email – Prisma Blog",
+          html: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -133,20 +134,21 @@ export const auth = betterAuth({
 
 </body>
 </html>
-      `
-    });
+      `,
+        });
 
-    console.log("Verification email sent:", info.messageId);
-
-  } catch (error) {
-    console.error("❌ Failed to send verification email:", error);
-  }
-}
-},
-socialProviders: {
-        google: { 
-            clientId: process.env.GOOGLE_CLIENT_ID as string, 
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, 
-        }, 
+        console.log("Verification email sent:", info.messageId);
+      } catch (error) {
+        console.error("❌ Failed to send verification email:", error);
+      }
     },
+  },
+  socialProviders: {
+    google: {
+      prompt: "select_account consent",
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      accessType: "offline",
+    },
+  },
 });

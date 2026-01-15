@@ -1,12 +1,19 @@
 import { prisma } from "../../lib/prisma";
-import { Prisma } from "../../../generated/prisma/client";
+import { Post, Prisma } from "../../../generated/prisma/client";
 
-const createPost = async (data: Prisma.PostCreateInput) => {
-    return await prisma.post.create({ data });
+const createPost = async (data: Omit<Post, "id" | "createdAt" | "updatedAt" | "authorID">, id: string) => {
+    const result = await prisma.post.create({ 
+        data :{
+            ...data,
+            authorID: id
+        }
+     });
+    return result;
 };
 
 const deletePost = async (id: string) => {
-    return await prisma.post.delete({ where: { id } });
+    const result = await prisma.post.delete({ where: { id } });
+    return result;
 };
 
 export const postService = {
