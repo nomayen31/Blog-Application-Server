@@ -11,6 +11,11 @@ const createPost = async (data: Omit<Post, "id" | "createdAt" | "updatedAt" | "a
     return result;
 };
 
+const getPosts = async () => {
+    const result = await prisma.post.findMany();
+    return result;
+};
+
 const deletePost = async (id: string) => {
     const result = await prisma.post.delete({ where: { id } });
     return result;
@@ -18,5 +23,6 @@ const deletePost = async (id: string) => {
 
 export const postService = {
     createPost,
-    deletePost
+    deletePost,
+    getPosts
 };

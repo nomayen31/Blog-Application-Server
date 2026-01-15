@@ -22,13 +22,27 @@ const createPost = async (req: Request, res: Response) => {
             return;
         }
 
-        
+
         const result = await postService.createPost(req.body, req.user.id)
         res.status(200).send(result)
     } catch (error) {
         console.error(error);
         res.status(400).json({
             error: "Post creation failed",
+            details: error instanceof Error ? error.message : "Unknown error"
+        })
+    }
+}
+
+
+const getPosts = async (req: Request, res: Response) => {
+    try {
+        const result = await postService.getPosts();
+        res.status(200).send(result)
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({
+            error: "Post retrieval failed",
             details: error instanceof Error ? error.message : "Unknown error"
         })
     }
@@ -65,5 +79,6 @@ const deletePost = async (req: Request, res: Response) => {
 
 export const postController = {
     createPost,
-    deletePost
+    deletePost,
+    getPosts
 }   
