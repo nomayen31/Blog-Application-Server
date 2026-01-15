@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { postService } from "./post.service";
+import { PostStatus } from "../../../generated/prisma/client";
 
 const createPost = async (req: Request, res: Response) => {
     try {
@@ -21,8 +22,6 @@ const createPost = async (req: Request, res: Response) => {
             });
             return;
         }
-
-
         const result = await postService.createPost(req.body, req.user.id)
         res.status(200).send(result)
     } catch (error) {
@@ -34,49 +33,60 @@ const createPost = async (req: Request, res: Response) => {
     }
 }
 
-
-
 const getPosts = async (req: Request, res: Response) => {
-  try {
-    const search =
-      typeof req.query.search === "string"
-        ? req.query.search.trim()
-        : undefined;
+    try {
+        const search =
+            typeof req.query.search === "string"
+                ? req.query.search.trim()
+                : undefined;
 
-    const tags =
-      typeof req.query.tags === "string"
-        ? req.query.tags.split(",").map(t => t.trim())
-        : undefined;
+        const tags =
+            typeof req.query.tags === "string"
+                ? req.query.tags.split(",").map(t => t.trim())
+                : undefined;
 
-    // Build payload safely (exactOptionalPropertyTypes friendly)
-    const payload = {
-      ...(search && { search }),
-      ...(tags && { tags })
-    };
+        const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
 
-    const posts = await postService.getPosts(payload);
+        const statusParam = req.query.status as string | undefined;
+        // Validate status against enum
+        const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
+            ? (statusParam as PostStatus)
+            : undefined;
 
-    return res.status(200).json({
-      success: true,
-      message: search
-        ? `Found ${posts.length} post(s) matching "${search}"`
-        : "Posts retrieved successfully",
-      data: {
-        items: posts,
-        total: posts.length,
-        searchQuery: search ?? null,
-        tags: tags ?? []
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching posts:", error);
+        const authorId = typeof req.query.authorId === "string" ? req.query.authorId.trim() : undefined;
 
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve posts",
-      error: error instanceof Error ? error.message : "Unexpected server error"
-    });
-  }
+        // Build payload safely (exactOptionalPropertyTypes friendly)
+        const payload = {
+            ...(search && { search }),
+            ...(tags && { tags }),
+            ...(isFeatured !== undefined && { isFeatured }),
+            ...(status && { status }),
+            ...(authorId && { authorId })
+        };
+
+        const posts = await postService.getPosts(payload);
+
+        return res.status(200).json({
+            success: true,
+            message: search
+                ? `Found ${posts.length} post(s) matching "${search}"`
+                : "Posts retrieved successfully",
+            data: {
+                items: posts,
+                total: posts.length,
+                searchQuery: search ?? null,
+                tags: tags ?? []
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching posts:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve posts",
+            error: error instanceof Error ? error.message : "Unexpected server error"
+        });
+    }
 };
 
 
