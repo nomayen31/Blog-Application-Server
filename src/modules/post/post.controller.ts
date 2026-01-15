@@ -35,18 +35,50 @@ const createPost = async (req: Request, res: Response) => {
 }
 
 
+
 const getPosts = async (req: Request, res: Response) => {
-    try {
-        const result = await postService.getPosts();
-        res.status(200).send(result)
-    } catch (error) {
-        console.error(error);
-        res.status(400).json({
-            error: "Post retrieval failed",
-            details: error instanceof Error ? error.message : "Unknown error"
-        })
-    }
-}
+  try {
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : undefined;
+
+    const tags =
+      typeof req.query.tags === "string"
+        ? req.query.tags.split(",").map(t => t.trim())
+        : undefined;
+
+    // Build payload safely (exactOptionalPropertyTypes friendly)
+    const payload = {
+      ...(search && { search }),
+      ...(tags && { tags })
+    };
+
+    const posts = await postService.getPosts(payload);
+
+    return res.status(200).json({
+      success: true,
+      message: search
+        ? `Found ${posts.length} post(s) matching "${search}"`
+        : "Posts retrieved successfully",
+      data: {
+        items: posts,
+        total: posts.length,
+        searchQuery: search ?? null,
+        tags: tags ?? []
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve posts",
+      error: error instanceof Error ? error.message : "Unexpected server error"
+    });
+  }
+};
+
 
 const deletePost = async (req: Request, res: Response) => {
     try {
