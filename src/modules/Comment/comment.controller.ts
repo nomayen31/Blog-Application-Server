@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 const createCommentController = async (req: Request, res: Response) => {
     try {
         const user = req.user;
-        req.body.authorId = user?.id;
+        req.body.authorId = user?.id || req.body.authorId;
         const comment = await CommentService.createCommnet(req.body);
         res.status(201).json(comment);
     } catch (error: any) {
