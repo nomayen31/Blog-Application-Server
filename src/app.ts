@@ -89,9 +89,11 @@ app.use(express.json());
 // Swagger Documentation
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
+import { CommentRouter } from "./modules/Comment/comment.router";
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/posts", postRouter)
+app.use("/comments", CommentRouter)
 
 
 app.get('/', (req, res) => {
