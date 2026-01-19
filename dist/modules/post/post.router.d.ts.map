@@ -1,1 +1,1 @@
-{"version":3,"file":"post.router.d.ts","sourceRoot":"","sources":["../../../src/modules/post/post.router.ts"],"names":[],"mappings":"AAAA,OAAO,OAAO,MAAM,SAAS,CAAC;AAW9B,eAAO,MAAM,UAAU,EAAE,OAAO,CAAC,MAAe,CAAC"}
+{"version":3,"file":"post.router.d.ts","sourceRoot":"","sources":["../../../src/modules/post/post.router.ts"],"names":[],"mappings":"AAAA,OAAO,OAAO,MAAM,SAAS,CAAC;AAkI9B,eAAO,MAAM,UAAU,EAAE,OAAO,CAAC,MAAe,CAAC"}

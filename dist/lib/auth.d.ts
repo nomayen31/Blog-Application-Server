@@ -26,11 +26,20 @@ export declare const auth: import("better-auth/*").Auth<{
     };
     emailVerification: {
         sendOnSignUp: true;
+        autoSignInAfterVerification: true;
         sendVerificationEmail: ({ user, url, token }: {
             user: import("better-auth/*").User;
             url: string;
             token: string;
         }) => Promise<void>;
+    };
+    socialProviders: {
+        google: {
+            prompt: "select_account consent";
+            clientId: string;
+            clientSecret: string;
+            accessType: "offline";
+        };
     };
 }>;
 //# sourceMappingURL=auth.d.ts.map

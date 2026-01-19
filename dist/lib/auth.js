@@ -1,7 +1,7 @@
-import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import { betterAuth } from "better-auth";
 import { prisma } from "./prisma";
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
@@ -37,10 +37,11 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
         autoSignIn: false,
-        requireEmailVerification: true
+        requireEmailVerification: true,
     },
     emailVerification: {
         sendOnSignUp: true,
+        autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user, url, token }) => {
             try {
                 const verificationUrl = `${process.env.APP_URL}/verify-email?token=${token}`;
@@ -127,14 +128,22 @@ export const auth = betterAuth({
 
 </body>
 </html>
-      `
+      `,
                 });
                 console.log("Verification email sent:", info.messageId);
             }
             catch (error) {
                 console.error("❌ Failed to send verification email:", error);
             }
-        }
-    }
+        },
+    },
+    socialProviders: {
+        google: {
+            prompt: "select_account consent",
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            accessType: "offline",
+        },
+    },
 });
 //# sourceMappingURL=auth.js.map

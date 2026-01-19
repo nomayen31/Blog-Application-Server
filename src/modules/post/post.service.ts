@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { Post, Prisma, PostStatus } from "../../../generated/prisma/client";
+import { paginationHelpers, IPaginationOptions } from "../../Helpers/paginationSortingHelper";
 
 const createPost = async (data: Omit<Post, "id" | "createdAt" | "updatedAt" | "authorID">, id: string) => {
     const result = await prisma.post.create({
@@ -17,10 +18,11 @@ type GetPostsPayload = {
     isFeatured?: boolean;
     status?: PostStatus;
     authorId?: string;
-};
+} & IPaginationOptions;
 
 const getPosts = async (payload: GetPostsPayload) => {
     const { search, tags, isFeatured, status, authorId } = payload;
+    const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(payload);
 
     // Build where clause dynamically with proper type safety
     const where: Prisma.PostWhereInput = {};
@@ -56,15 +58,60 @@ const getPosts = async (payload: GetPostsPayload) => {
         where.authorID = authorId;
     }
 
-    // Execute query with filters
-    const posts = await prisma.post.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-    });
+    // Handle sorting
+    const orderBy: Prisma.PostOrderByWithRelationInput = {};
 
-    return posts;
+    // Only allow sorting by specific fields to prevent errors
+    const allowedSortFields = ["createdAt", "updatedAt", "title", "views"];
+    if (sortBy && sortOrder && allowedSortFields.includes(sortBy)) {
+        (orderBy as any)[sortBy] = sortOrder;
+    } else {
+        // Fallback to default
+        orderBy.createdAt = "desc";
+    }
+
+    // Execute query with filters and get total count
+    const [posts, total] = await Promise.all([
+        prisma.post.findMany({
+            where,
+            orderBy,
+            take: limit,
+            skip
+        }),
+        prisma.post.count({ where })
+    ]);
+
+    return {
+        posts,
+        total,
+        page,
+        limit
+    };
 };
 
+
+const getPostById = async (id: string) => {
+    // First check if post exists
+    const post = await prisma.post.findUnique({
+        where: { id }
+    });
+
+    if (!post) {
+        return null;
+    }
+
+    // Increment view count
+    const updatedPost = await prisma.post.update({
+        where: { id },
+        data: {
+            views: {
+                increment: 1
+            }
+        }
+    });
+
+    return updatedPost;
+};
 
 const deletePost = async (id: string) => {
     const result = await prisma.post.delete({ where: { id } });
@@ -74,5 +121,6 @@ const deletePost = async (id: string) => {
 export const postService = {
     createPost,
     deletePost,
-    getPosts
+    getPosts,
+    getPostById
 };

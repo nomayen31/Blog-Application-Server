@@ -55,25 +55,39 @@ const getPosts = async (req: Request, res: Response) => {
 
         const authorId = typeof req.query.authorId === "string" ? req.query.authorId.trim() : undefined;
 
+        const page = req.query.page ? Number(req.query.page) : undefined;
+        const limit = req.query.limit ? Number(req.query.limit) : undefined;
+        const sortBy = req.query.sortBy as string | undefined;
+        const sortOrder = req.query.sortOrder as string | undefined;
+
         // Build payload safely (exactOptionalPropertyTypes friendly)
         const payload = {
             ...(search && { search }),
             ...(tags && { tags }),
             ...(isFeatured !== undefined && { isFeatured }),
             ...(status && { status }),
-            ...(authorId && { authorId })
+            ...(authorId && { authorId }),
+            ...(page && { page }),
+            ...(limit && { limit }),
+            ...(sortBy && { sortBy }),
+            ...(sortOrder && { sortOrder })
         };
 
-        const posts = await postService.getPosts(payload);
+        const result = await postService.getPosts(payload);
 
         return res.status(200).json({
             success: true,
             message: search
-                ? `Found ${posts.length} post(s) matching "${search}"`
+                ? `Found ${result.total} post(s) matching "${search}"`
                 : "Posts retrieved successfully",
             data: {
-                items: posts,
-                total: posts.length,
+                items: result.posts,
+                pagination: {
+                    page: result.page,
+                    limit: result.limit,
+                    total: result.total,
+                    totalPages: Math.ceil(result.total / result.limit)
+                },
                 searchQuery: search ?? null,
                 tags: tags ?? []
             }
@@ -84,6 +98,43 @@ const getPosts = async (req: Request, res: Response) => {
         return res.status(500).json({
             success: false,
             message: "Failed to retrieve posts",
+            error: error instanceof Error ? error.message : "Unexpected server error"
+        });
+    }
+};
+
+
+const getPostById = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Post ID is required",
+            });
+        }
+
+        const post = await postService.getPostById(id);
+
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: "Post not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Post retrieved successfully",
+            data: post,
+        });
+    } catch (error) {
+        console.error("Error fetching post:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve post",
             error: error instanceof Error ? error.message : "Unexpected server error"
         });
     }
@@ -122,5 +173,6 @@ const deletePost = async (req: Request, res: Response) => {
 export const postController = {
     createPost,
     deletePost,
-    getPosts
+    getPosts,
+    getPostById
 }   

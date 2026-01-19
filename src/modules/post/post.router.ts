@@ -110,6 +110,34 @@ router.post("/", auth(UserRole.USER), postController.createPost);
 /**
  * @swagger
  * /posts/{id}:
+ *   get:
+ *     summary: Get a single post by ID
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The post ID
+ *     responses:
+ *       200:
+ *         description: Post retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Post retrieved successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Post'
+ *       404:
+ *         description: Post not found
  *   delete:
  *     summary: Delete a post
  *     tags: [Posts]
@@ -126,6 +154,7 @@ router.post("/", auth(UserRole.USER), postController.createPost);
  *       404:
  *         description: Post not found
  */
+router.get("/:id", postController.getPostById);
 router.delete("/:id", postController.deletePost);
 
 export const postRouter: express.Router = router;
