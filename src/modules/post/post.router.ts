@@ -135,7 +135,23 @@ router.post("/", auth(UserRole.USER), postController.createPost);
  *                   type: string
  *                   example: "Post retrieved successfully"
  *                 data:
- *                   $ref: '#/components/schemas/Post'
+ *                   allOf:
+ *                     - $ref: '#/components/schemas/Post'
+ *                     - type: object
+ *                       properties:
+ *                         totalComments:
+ *                           type: integer
+ *                           example: 10
+ *                         totalRootComments:
+ *                           type: integer
+ *                           example: 5
+ *                         totalReplies:
+ *                           type: integer
+ *                           example: 5
+ *                         comments:
+ *                           type: array
+ *                           items:
+ *                             $ref: '#/components/schemas/Comment'
  *       404:
  *         description: Post not found
  *   delete:

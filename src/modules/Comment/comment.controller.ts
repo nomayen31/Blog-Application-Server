@@ -21,6 +21,99 @@ const createCommentController = async (req: Request, res: Response) => {
     }
 }
 
+const getCommentByIdController = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        if (!id || typeof id !== "string") {
+            return res.status(400).json({
+                error: "Invalid or missing comment id"
+            });
+        }
+
+        const comment = await CommentService.getCommentById(id);
+        res.status(200).json(comment);
+    } catch (error: any) {
+        res.status(500).json({
+            error: "Comment not found",
+            details: error.message
+        });
+    }
+};
+
+const getCommentsByAuthorIDController = async (req: Request, res: Response) => {
+    try {
+        const { authorId } = req.params;
+
+        if (!authorId || typeof authorId !== "string") {
+            return res.status(400).json({
+                error: "Invalid or missing author id"
+            });
+        }
+
+        const comments = await CommentService.getCommentsByAuthorID(authorId);
+        res.status(200).json(comments);
+    } catch (error: any) {
+        res.status(500).json({
+            error: "Comments not found",
+            details: error.message
+        });
+    }
+};
+
+const deleteCommentByIdController = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        if (!id || typeof id !== "string") {
+            return res.status(400).json({
+                error: "Invalid or missing comment id"
+            });
+        }
+
+        const comment = await CommentService.deleteCommentById(id);
+        return res.status(200).json({
+            success: true,
+            message: "Comment deleted successfully",
+            data: comment
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            error: "Comment not found",
+            details: error.message
+        });
+    }
+};
+
+
+const updateCommentByIdController = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        if (!id || typeof id !== "string") {
+            return res.status(400).json({
+                error: "Invalid or missing comment id"
+            });
+        }
+
+        const comment = await CommentService.updateCommentById(id, req.body);
+        return res.status(200).json({
+            success: true,
+            message: "Comment updated successfully",
+            data: comment
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            error: "Comment not found",
+            details: error.message
+        });
+    }
+};
+
 export const CommentController = {
-    createCommentController
+    createCommentController,
+    getCommentByIdController,
+    getCommentsByAuthorIDController,
+    deleteCommentByIdController,
+    updateCommentByIdController
 }
