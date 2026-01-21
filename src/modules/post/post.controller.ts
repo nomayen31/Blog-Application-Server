@@ -1,280 +1,202 @@
 import { Request, Response } from "express";
 import { postService } from "./post.service";
 import { PostStatus } from "../../../generated/prisma/client";
+import catchAsync from "../../utils/catchAsync";
+import { AppError } from "../../utils/AppError";
 
-const createPost = async (req: Request, res: Response) => {
-    try {
-        // Check if user is authenticated
-        if (!req.user) {
-            res.status(401).json({
-                error: "Authentication required",
-                details: "You must be logged in to create a post"
-            });
-            return;
-        }
-
-        const { title, content } = req.body;
-
-        if (!title || !content) {
-            res.status(400).json({
-                error: "Validation failed",
-                details: "Title and content are required"
-            });
-            return;
-        }
-        const result = await postService.createPost(req.body, req.user.id)
-        res.status(200).send(result)
-    } catch (error) {
-        console.error(error);
-        res.status(400).json({
-            error: "Post creation failed",
-            details: error instanceof Error ? error.message : "Unknown error"
-        })
+const createPost = catchAsync(async (req: Request, res: Response) => {
+    // Check if user is authenticated
+    if (!req.user) {
+        throw new AppError(401, "Authentication required");
+        // details: "You must be logged in to create a post" - message covers it
     }
-}
 
-const getPosts = async (req: Request, res: Response) => {
-    try {
-        const search =
-            typeof req.query.search === "string"
-                ? req.query.search.trim()
-                : undefined;
+    const { title, content } = req.body;
 
-        const tags =
-            typeof req.query.tags === "string"
-                ? req.query.tags.split(",").map(t => t.trim())
-                : undefined;
+    if (!title || !content) {
+        throw new AppError(400, "Validation failed: Title and content are required");
+    }
+    const result = await postService.createPost(req.body, req.user.id)
+    res.status(200).send(result)
+});
 
-        const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
-
-        const statusParam = req.query.status as string | undefined;
-        // Validate status against enum
-        const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
-            ? (statusParam as PostStatus)
+const getPosts = catchAsync(async (req: Request, res: Response) => {
+    const search =
+        typeof req.query.search === "string"
+            ? req.query.search.trim()
             : undefined;
 
-        const authorId = typeof req.query.authorId === "string" ? req.query.authorId.trim() : undefined;
-
-        const page = req.query.page ? Number(req.query.page) : undefined;
-        const limit = req.query.limit ? Number(req.query.limit) : undefined;
-        const sortBy = req.query.sortBy as string | undefined;
-        const sortOrder = req.query.sortOrder as string | undefined;
-
-        // Build payload safely (exactOptionalPropertyTypes friendly)
-        const payload = {
-            ...(search && { search }),
-            ...(tags && { tags }),
-            ...(isFeatured !== undefined && { isFeatured }),
-            ...(status && { status }),
-            ...(authorId && { authorId }),
-            ...(page && { page }),
-            ...(limit && { limit }),
-            ...(sortBy && { sortBy }),
-            ...(sortOrder && { sortOrder })
-        };
-
-        const result = await postService.getPosts(payload);
-
-        return res.status(200).json({
-            success: true,
-            message: search
-                ? `Found ${result.total} post(s) matching "${search}"`
-                : "Posts retrieved successfully",
-            data: {
-                items: result.posts,
-                pagination: {
-                    page: result.page,
-                    limit: result.limit,
-                    total: result.total,
-                    totalPages: Math.ceil(result.total / result.limit)
-                },
-                searchQuery: search ?? null,
-                tags: tags ?? []
-            }
-        });
-    } catch (error) {
-        console.error("Error fetching posts:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Failed to retrieve posts",
-            error: error instanceof Error ? error.message : "Unexpected server error"
-        });
-    }
-};
-
-
-const getPostById = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-
-        if (!id) {
-            return res.status(400).json({
-                success: false,
-                message: "Post ID is required",
-            });
-        }
-
-        const post = await postService.getPostById(id as string);
-
-        if (!post) {
-            return res.status(404).json({
-                success: false,
-                message: "Post not found",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Post retrieved successfully",
-            data: post,
-        });
-    } catch (error) {
-        console.error("Error fetching post:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Failed to retrieve post",
-            error: error instanceof Error ? error.message : "Unexpected server error"
-        });
-    }
-};
-
-
-const deletePost = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-
-        if (!id) {
-            return res.status(400).json({
-                success: false,
-                message: "Post ID is required",
-            });
-        }
-
-        const result = await postService.deletePost(id as string);
-
-        return res.status(200).json({
-            success: true,
-            message: "Post deleted successfully",
-            data: result,
-        });
-    } catch (error: any) {
-        console.error(error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Post deletion failed",
-        });
-    }
-};
-
-
-const getMyPosts = async (req: Request, res: Response) => {
-    try {
-        if (!req.user) {
-            res.status(401).json({
-                success: false,
-                message: "Authentication required",
-                error: "You must be logged in to view your posts"
-            });
-            return
-        }
-
-        // Check user status
-        if (req.user.status !== "ACTIVE") {
-            res.status(403).json({
-                success: false,
-                message: "Access denied",
-                error: "Your account is not active"
-            });
-            return;
-        }
-
-        const search =
-            typeof req.query.search === "string"
-                ? req.query.search.trim()
-                : undefined;
-
-        const tags =
-            typeof req.query.tags === "string"
-                ? req.query.tags.split(",").map(t => t.trim())
-                : undefined;
-
-        const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
-
-        const statusParam = req.query.status as string | undefined;
-        // Validate status against enum
-        const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
-            ? (statusParam as PostStatus)
+    const tags =
+        typeof req.query.tags === "string"
+            ? req.query.tags.split(",").map(t => t.trim())
             : undefined;
 
-        const page = req.query.page ? Number(req.query.page) : undefined;
-        const limit = req.query.limit ? Number(req.query.limit) : undefined;
-        const sortBy = req.query.sortBy as string | undefined;
-        const sortOrder = req.query.sortOrder as string | undefined;
+    const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
 
-        // Force authorId to be the current user
-        const authorId = req.user.id;
+    const statusParam = req.query.status as string | undefined;
+    // Validate status against enum
+    const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
+        ? (statusParam as PostStatus)
+        : undefined;
 
-        const payload = {
-            ...(search && { search }),
-            ...(tags && { tags }),
-            ...(isFeatured !== undefined && { isFeatured }),
-            ...(status && { status }),
-            ...(page && { page }),
-            ...(limit && { limit }),
-            ...(sortBy && { sortBy }),
-            ...(sortOrder && { sortOrder }),
-            authorId
-        };
+    const authorId = typeof req.query.authorId === "string" ? req.query.authorId.trim() : undefined;
 
-        const result = await postService.getPosts(payload);
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const sortBy = req.query.sortBy as string | undefined;
+    const sortOrder = req.query.sortOrder as string | undefined;
 
-        return res.status(200).json({
-            success: true,
-            message: "My posts retrieved successfully",
-            data: {
-                items: result.posts,
-                pagination: {
-                    page: result.page,
-                    limit: result.limit,
-                    total: result.total,
-                    totalPages: Math.ceil(result.total / result.limit)
-                }
-            }
-        });
-    } catch (error) {
-        console.error("Error fetching my posts:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to retrieve your posts",
-            error: error instanceof Error ? error.message : "Unexpected server error"
-        });
+    // Build payload safely (exactOptionalPropertyTypes friendly)
+    const payload = {
+        ...(search && { search }),
+        ...(tags && { tags }),
+        ...(isFeatured !== undefined && { isFeatured }),
+        ...(status && { status }),
+        ...(authorId && { authorId }),
+        ...(page && { page }),
+        ...(limit && { limit }),
+        ...(sortBy && { sortBy }),
+        ...(sortOrder && { sortOrder })
+    };
+
+    const result = await postService.getPosts(payload);
+
+    res.status(200).json({
+        success: true,
+        message: search
+            ? `Found ${result.total} post(s) matching "${search}"`
+            : "Posts retrieved successfully",
+        data: {
+            items: result.posts,
+            pagination: {
+                page: result.page,
+                limit: result.limit,
+                total: result.total,
+                totalPages: Math.ceil(result.total / result.limit)
+            },
+            searchQuery: search ?? null,
+            tags: tags ?? []
+        }
+    });
+});
+
+
+const getPostById = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new AppError(400, "Post ID is required");
     }
-};
 
-const updatePost = async (req: Request, res: Response) => {
+    const post = await postService.getPostById(id as string);
+
+    if (!post) {
+        throw new AppError(404, "Post not found");
+    }
+
+    res.status(200).json({
+        success: true,
+        message: "Post retrieved successfully",
+        data: post,
+    });
+});
+
+
+const deletePost = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new AppError(400, "Post ID is required");
+    }
+
+    const result = await postService.deletePost(id as string);
+
+    res.status(200).json({
+        success: true,
+        message: "Post deleted successfully",
+        data: result,
+    });
+});
+
+
+const getMyPosts = catchAsync(async (req: Request, res: Response) => {
+    if (!req.user) {
+        throw new AppError(401, "Authentication required");
+    }
+
+    // Check user status
+    if (req.user.status !== "ACTIVE") {
+        throw new AppError(403, "Access denied: Your account is not active");
+    }
+
+    const search =
+        typeof req.query.search === "string"
+            ? req.query.search.trim()
+            : undefined;
+
+    const tags =
+        typeof req.query.tags === "string"
+            ? req.query.tags.split(",").map(t => t.trim())
+            : undefined;
+
+    const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
+
+    const statusParam = req.query.status as string | undefined;
+    // Validate status against enum
+    const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
+        ? (statusParam as PostStatus)
+        : undefined;
+
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const sortBy = req.query.sortBy as string | undefined;
+    const sortOrder = req.query.sortOrder as string | undefined;
+
+    // Force authorId to be the current user
+    const authorId = req.user.id;
+
+    const payload = {
+        ...(search && { search }),
+        ...(tags && { tags }),
+        ...(isFeatured !== undefined && { isFeatured }),
+        ...(status && { status }),
+        ...(page && { page }),
+        ...(limit && { limit }),
+        ...(sortBy && { sortBy }),
+        ...(sortOrder && { sortOrder }),
+        authorId
+    };
+
+    const result = await postService.getPosts(payload);
+
+    res.status(200).json({
+        success: true,
+        message: "My posts retrieved successfully",
+        data: {
+            items: result.posts,
+            pagination: {
+                page: result.page,
+                limit: result.limit,
+                total: result.total,
+                totalPages: Math.ceil(result.total / result.limit)
+            }
+        }
+    });
+});
+
+const updatePost = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (!req.user) {
+        throw new AppError(401, "Authentication required");
+    }
+
+    if (!id) {
+        throw new AppError(400, "Post ID is required");
+    }
+
     try {
-        const { id } = req.params;
-        const updateData = req.body;
-
-        if (!req.user) {
-            res.status(401).json({
-                success: false,
-                message: "Authentication required",
-            });
-            return;
-        }
-
-        if (!id) {
-            res.status(400).json({
-                success: false,
-                message: "Post ID is required",
-            });
-            return;
-        }
-
         const result = await postService.updatePost(id as string, updateData, req.user.id);
 
         res.status(200).json({
@@ -282,50 +204,26 @@ const updatePost = async (req: Request, res: Response) => {
             message: "Post updated successfully",
             data: result
         });
-    } catch (error) {
-        console.error("Error updating post:", error);
-
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        if (errorMessage.includes("Unauthorized")) {
-            res.status(403).json({
-                success: false,
-                message: errorMessage
-            });
-            return;
+    } catch (error: any) {
+        // Handle specific errors thrown by service if not yet refactored to AppError
+        if (error.message.includes("Unauthorized")) {
+            throw new AppError(403, error.message);
         }
-        if (errorMessage.includes("Post not found")) {
-            res.status(404).json({
-                success: false,
-                message: errorMessage
-            });
-            return;
+        if (error.message.includes("Post not found")) {
+            throw new AppError(404, error.message);
         }
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to update post",
-            error: errorMessage
-        });
+        throw error; // Let global handler handle "Unknown error" as 500
     }
-};
+});
 
-const getStats = async (req: Request, res: Response) => {
-    try {
-        const result = await postService.getStats();
-        res.status(200).json({
-            success: true,
-            message: "Stats retrieved successfully",
-            data: result
-        });
-    } catch (error) {
-        console.error("Error fetching stats:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch stats",
-            error: error instanceof Error ? error.message : "Unknown error"
-        });
-    }
-};
+const getStats = catchAsync(async (req: Request, res: Response) => {
+    const result = await postService.getStats();
+    res.status(200).json({
+        success: true,
+        message: "Stats retrieved successfully",
+        data: result
+    });
+});
 
 export const postController = {
     createPost,
@@ -335,4 +233,4 @@ export const postController = {
     getPostById,
     getMyPosts,
     getStats
-}   
+}

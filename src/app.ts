@@ -90,15 +90,18 @@ app.use(express.json());
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
 import { CommentRouter } from "./modules/Comment/comment.router";
+import globalErrorHandler from "./middleware/globalErrorHandler";
+import { notFound } from "./middleware/notFound";
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/posts", postRouter)
 app.use("/comments", CommentRouter)
 
-
 app.get('/', (req, res) => {
       res.send("Hello World!")
 })
 
+app.use(notFound)
+app.use(globalErrorHandler)
 
 export default app;

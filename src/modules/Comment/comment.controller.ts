@@ -1,7 +1,9 @@
 import { CommentService } from "./comment.service";
 import { Request, Response } from "express";
+import catchAsync from "../../utils/catchAsync";
+import { AppError } from "../../utils/AppError";
 
-const createCommentController = async (req: Request, res: Response) => {
+const createCommentController = catchAsync(async (req: Request, res: Response) => {
     try {
         const user = req.user;
         req.body.authorId = user?.id || req.body.authorId;
@@ -9,68 +11,54 @@ const createCommentController = async (req: Request, res: Response) => {
         res.status(201).json(comment);
     } catch (error: any) {
         if (error.message === "Post not found") {
-            res.status(404).json({
-                error: "Post not found",
-            })
-            return
+            throw new AppError(404, "Post not found");
         }
-        res.status(500).json({
-            error: "Comment not created",
-            details: error
-        })
+        throw error;
     }
-}
+});
 
-const getCommentByIdController = async (req: Request, res: Response) => {
+const getCommentByIdController = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string") {
+        throw new AppError(400, "Invalid or missing comment id");
+    }
+
     try {
-        const { id } = req.params;
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing comment id"
-            });
-        }
-
         const comment = await CommentService.getCommentById(id);
         res.status(200).json(comment);
     } catch (error: any) {
-        res.status(500).json({
-            error: "Comment not found",
-            details: error.message
-        });
+        // Service likely throws generic Error if not found, based on previous pattern
+        // Or if it returns null? The controller code had try-catch so likely throws.
+        // Original: res.status(500).json({ error: "Comment not found", details: error.message });
+        // If it was 500 for "Comment not found", that's weird. Assuming it implies 404.
+        throw new AppError(404, "Comment not found"); // Standardizing to 404 for findById
     }
-};
+});
 
-const getCommentsByAuthorIDController = async (req: Request, res: Response) => {
+const getCommentsByAuthorIDController = catchAsync(async (req: Request, res: Response) => {
+    const { authorId } = req.params;
+
+    if (!authorId || typeof authorId !== "string") {
+        throw new AppError(400, "Invalid or missing author id");
+    }
+
     try {
-        const { authorId } = req.params;
-
-        if (!authorId || typeof authorId !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing author id"
-            });
-        }
-
         const comments = await CommentService.getCommentsByAuthorID(authorId);
         res.status(200).json(comments);
     } catch (error: any) {
-        res.status(500).json({
-            error: "Comments not found",
-            details: error.message
-        });
+        throw new AppError(404, "Comments not found");
     }
-};
+});
 
-const deleteCommentByIdController = async (req: Request, res: Response) => {
+const deleteCommentByIdController = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string") {
+        throw new AppError(400, "Invalid or missing comment id");
+    }
+
     try {
-        const { id } = req.params;
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing comment id"
-            });
-        }
-
         const comment = await CommentService.deleteCommentById(id);
         return res.status(200).json({
             success: true,
@@ -78,24 +66,19 @@ const deleteCommentByIdController = async (req: Request, res: Response) => {
             data: comment
         });
     } catch (error: any) {
-        res.status(500).json({
-            error: "Comment not found",
-            details: error.message
-        });
+        throw new AppError(404, "Comment not found");
     }
-};
+});
 
 
-const updateCommentByIdController = async (req: Request, res: Response) => {
+const updateCommentByIdController = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string") {
+        throw new AppError(400, "Invalid or missing comment id");
+    }
+
     try {
-        const { id } = req.params;
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing comment id"
-            });
-        }
-
         const comment = await CommentService.updateCommentById(id, req.body);
         return res.status(200).json({
             success: true,
@@ -103,30 +86,23 @@ const updateCommentByIdController = async (req: Request, res: Response) => {
             data: comment
         });
     } catch (error: any) {
-        res.status(500).json({
-            error: "Comment not found",
-            details: error.message
-        });
+        throw new AppError(404, "Comment not found");
     }
-};
+});
 
-const modarateCommentController = async (req: Request, res: Response) => {
+const modarateCommentController = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id || typeof id !== "string") {
+        throw new AppError(400, "Invalid or missing comment id");
+    }
+
+    if (!status || typeof status !== "string") {
+        throw new AppError(400, "Invalid or missing status");
+    }
+
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing comment id"
-            });
-        }
-
-        if (!status || typeof status !== "string") {
-            return res.status(400).json({
-                error: "Invalid or missing status"
-            });
-        }
-
         const comment = await CommentService.modarateComment(id, status);
         return res.status(200).json({
             success: true,
@@ -135,22 +111,14 @@ const modarateCommentController = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         if (error.message.includes("Comment is already")) {
-            return res.status(409).json({
-                success: false,
-                message: error.message
-            });
+            throw new AppError(409, error.message);
         }
         if (error.message === "Comment not found") {
-            return res.status(404).json({
-                error: "Comment not found"
-            });
+            throw new AppError(404, "Comment not found");
         }
-        res.status(500).json({
-            error: "Failed to update comment status",
-            details: error.message
-        });
+        throw error;
     }
-};
+});
 
 export const CommentController = {
     createCommentController,
