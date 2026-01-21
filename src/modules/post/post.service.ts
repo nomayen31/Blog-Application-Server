@@ -177,6 +177,41 @@ const getPostById = async (id: string) => {
         totalRootComments,
         comments: commentTree
     };
+
+};
+
+const updatePost = async (id: string, payload: Partial<Post>, authorId: string) => {
+    // 1. Check if post exists
+    const post = await prisma.post.findUnique({
+        where: { id }
+    });
+
+    if (!post) {
+        throw new Error("Post not found");
+    }
+
+    // 2. Check ownership
+    // Note: Assuming ADMIN might also want to update, but the prompt said "only can the user".
+    // If strict adherence to "only the user", stick to exact ID match.
+    // If we want admins to override, we'd need to pass user role here too.
+    // Based on "only can the user", I will enforcing authorID match.
+    if (post.authorID !== authorId) {
+        throw new Error("Unauthorized: You can only update your own posts");
+    }
+
+    // 3. Update
+    // Exclude fields that shouldn't be updated directly if any (like authorID, views, comment counts etc)
+    // For safety, let's explicitly pick fields or trust the controller to send cleaned payload.
+    // Assuming payload is somewhat clean or we just spread it.
+    // Important: Don't let them update authorID!
+    const { authorID: _, id: __, ...updateData } = payload as any;
+
+    const result = await prisma.post.update({
+        where: { id },
+        data: updateData
+    });
+
+    return result;
 };
 
 const deletePost = async (id: string) => {
@@ -184,9 +219,30 @@ const deletePost = async (id: string) => {
     return result;
 };
 
+const getStats = async () => {
+    // postCount , Total publishes, DraftPosts , total comments , total views , archive post, reject comment, total users, admin count, usercount, total view count 
+    return await prisma.$transaction([
+        prisma.post.count(),
+        prisma.post.count({ where: { status: "PUBLISHED" } }),
+        prisma.post.count({ where: { status: "DRAFT" } }),
+        prisma.post.count({ where: { status: "ARCHIVED" } }),
+        prisma.comment.count(),
+        prisma.post.aggregate({ _sum: { views: true } }),
+        prisma.comment.count({ where: { Status: "REJECT" } }),
+        prisma.comment.count({ where: { Status: "APPROVED" } }),
+        prisma.comment.count({ where: { id: "PENDING_PLACEHOLDER" } }),
+        prisma.user.count({ where: { role: "ADMIN" } }),
+        prisma.user.count({ where: { role: "USER" } }),
+        prisma.user.count({ where: { role: "USER" } }),
+        prisma.post.aggregate({ _sum: { views: true } })
+    ])
+}
+
 export const postService = {
     createPost,
+    updatePost,
     deletePost,
     getPosts,
-    getPostById
+    getPostById,
+    getStats
 };

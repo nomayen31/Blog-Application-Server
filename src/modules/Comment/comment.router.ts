@@ -113,7 +113,7 @@ router.post('/', auth(UserRole.USER, UserRole.ADMIN), CommentController.createCo
  *       500:
  *         description: Server error
  */
-router.get('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.getCommentByIdController) 
+router.get('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.getCommentByIdController)
 
 /**
  * @swagger
@@ -208,7 +208,7 @@ router.delete('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.del
 /**
  * @swagger
  * /comments/{id}:
- *   put:
+ *   PATCH:
  *     summary: Update a comment by ID
  *     tags: [Comments]
  *     parameters:
@@ -267,6 +267,61 @@ router.delete('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.del
  *       500:
  *         description: Server error
  */
-router.put('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.updateCommentByIdController)
+
+router.patch('/:id', auth(UserRole.USER, UserRole.ADMIN), CommentController.updateCommentByIdController)
+
+/**
+ * @swagger
+ * /comments/{id}/moderate:
+ *   patch:
+ *     summary: Moderate a comment (Admin only)
+ *     tags: [Comments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the comment to moderate
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [APPROVED, REJECT]
+ *                 example: "REJECT"
+ *     responses:
+ *       200:
+ *         description: Comment status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Comment status updated successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Comment'
+ *       400:
+ *         description: Invalid input
+ *       403:
+ *         description: Unauthorized (Admin only)
+ *       404:
+ *         description: Comment not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:id/moderate', auth(UserRole.ADMIN), CommentController.modarateCommentController)
 
 export const CommentRouter: Router = router;

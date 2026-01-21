@@ -14,6 +14,7 @@ declare global {
         role: UserRole;
         name: string;
         emailVerified: boolean;
+        status: string;
       };
     }
   }
@@ -57,6 +58,7 @@ const auth = (...roles: UserRole[]) => {
         role: session.user.role as UserRole,
         name: session.user.name,
         emailVerified: session.user.emailVerified,
+        status: (session.user as any).status,
       };
 
       // ---- Role based access control ----

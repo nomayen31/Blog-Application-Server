@@ -115,7 +115,7 @@ const getPostById = async (req: Request, res: Response) => {
             });
         }
 
-        const post = await postService.getPostById(id);
+        const post = await postService.getPostById(id as string);
 
         if (!post) {
             return res.status(404).json({
@@ -170,9 +170,169 @@ const deletePost = async (req: Request, res: Response) => {
 };
 
 
+const getMyPosts = async (req: Request, res: Response) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: "Authentication required",
+                error: "You must be logged in to view your posts"
+            });
+            return
+        }
+
+        // Check user status
+        if (req.user.status !== "ACTIVE") {
+            res.status(403).json({
+                success: false,
+                message: "Access denied",
+                error: "Your account is not active"
+            });
+            return;
+        }
+
+        const search =
+            typeof req.query.search === "string"
+                ? req.query.search.trim()
+                : undefined;
+
+        const tags =
+            typeof req.query.tags === "string"
+                ? req.query.tags.split(",").map(t => t.trim())
+                : undefined;
+
+        const isFeatured = req.query.isFeatured === "true" ? true : req.query.isFeatured === "false" ? false : undefined;
+
+        const statusParam = req.query.status as string | undefined;
+        // Validate status against enum
+        const status = statusParam && Object.values(PostStatus).includes(statusParam as PostStatus)
+            ? (statusParam as PostStatus)
+            : undefined;
+
+        const page = req.query.page ? Number(req.query.page) : undefined;
+        const limit = req.query.limit ? Number(req.query.limit) : undefined;
+        const sortBy = req.query.sortBy as string | undefined;
+        const sortOrder = req.query.sortOrder as string | undefined;
+
+        // Force authorId to be the current user
+        const authorId = req.user.id;
+
+        const payload = {
+            ...(search && { search }),
+            ...(tags && { tags }),
+            ...(isFeatured !== undefined && { isFeatured }),
+            ...(status && { status }),
+            ...(page && { page }),
+            ...(limit && { limit }),
+            ...(sortBy && { sortBy }),
+            ...(sortOrder && { sortOrder }),
+            authorId
+        };
+
+        const result = await postService.getPosts(payload);
+
+        return res.status(200).json({
+            success: true,
+            message: "My posts retrieved successfully",
+            data: {
+                items: result.posts,
+                pagination: {
+                    page: result.page,
+                    limit: result.limit,
+                    total: result.total,
+                    totalPages: Math.ceil(result.total / result.limit)
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching my posts:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve your posts",
+            error: error instanceof Error ? error.message : "Unexpected server error"
+        });
+    }
+};
+
+const updatePost = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+            return;
+        }
+
+        if (!id) {
+            res.status(400).json({
+                success: false,
+                message: "Post ID is required",
+            });
+            return;
+        }
+
+        const result = await postService.updatePost(id as string, updateData, req.user.id);
+
+        res.status(200).json({
+            success: true,
+            message: "Post updated successfully",
+            data: result
+        });
+    } catch (error) {
+        console.error("Error updating post:", error);
+
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        if (errorMessage.includes("Unauthorized")) {
+            res.status(403).json({
+                success: false,
+                message: errorMessage
+            });
+            return;
+        }
+        if (errorMessage.includes("Post not found")) {
+            res.status(404).json({
+                success: false,
+                message: errorMessage
+            });
+            return;
+        }
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to update post",
+            error: errorMessage
+        });
+    }
+};
+
+const getStats = async (req: Request, res: Response) => {
+    try {
+        const result = await postService.getStats();
+        res.status(200).json({
+            success: true,
+            message: "Stats retrieved successfully",
+            data: result
+        });
+    } catch (error) {
+        console.error("Error fetching stats:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch stats",
+            error: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
 export const postController = {
     createPost,
+    updatePost,
     deletePost,
     getPosts,
-    getPostById
+    getPostById,
+    getMyPosts,
+    getStats
 }   

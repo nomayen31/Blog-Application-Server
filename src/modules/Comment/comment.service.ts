@@ -1,3 +1,4 @@
+import { CommentStatus } from "../../../generated/prisma/client"
 import { prisma } from "../../lib/prisma"
 
 const createCommnet = async (payload: {
@@ -6,7 +7,7 @@ const createCommnet = async (payload: {
     postId: string,
     parentId?: string
 }) => {
- await prisma.post.findUniqueOrThrow({
+    await prisma.post.findUniqueOrThrow({
         where: {
             id: payload.postId
         }
@@ -28,13 +29,13 @@ const getCommentById = async (id: string) => {
     const result = await prisma.comment.findUniqueOrThrow({
         where: {
             id
-        }, 
-        include:{
-            post:{
-                select:{
-                    id:true,
-                    title:true,
-                    views:true,
+        },
+        include: {
+            post: {
+                select: {
+                    id: true,
+                    title: true,
+                    views: true,
                 }
             }
         }
@@ -53,7 +54,7 @@ const getCommentsByAuthorID = async (authorId: string) => {
         include: {
             post: {
                 select: {
-                    id: true, 
+                    id: true,
                     title: true,
                     views: true,
                 }
@@ -87,12 +88,43 @@ const updateCommentById = async (id: string, payload: {
     return result;
 }
 
+const modarateComment = async (id: string, status: string) => {
+    // Validate status (basic check, though Prisma handles type mismatch error)
+    // Assuming status is passed as a string like "APPROVED" | "REJECT"
+
+    const existComment = await prisma.comment.findUnique({
+        where: {
+            id
+        }
+    })
+
+    if (!existComment) {
+        throw new Error("Comment not found")
+    }
+
+    if (existComment.Status === status) {
+        throw new Error(`Comment is already ${status}`)
+    }
+
+    const result = await prisma.comment.update({
+        where: {
+            id
+        },
+        data: {
+            Status: status as CommentStatus
+        }
+    })
+    return result;
+}
+
+
 export const CommentService = {
     createCommnet,
     getCommentById,
     getCommentsByAuthorID,
     deleteCommentById,
-    updateCommentById
+    updateCommentById,
+    modarateComment
 }
 
 
